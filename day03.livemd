@@ -1,3 +1,4 @@
+<!-- vim: syntax=markdown -->
 # Day 3
 
 ## Helpers
