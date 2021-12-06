@@ -1,0 +1,68 @@
+<!-- vim: syntax=markdown -->
+
+# Day 6
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day06.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def step(age_counts) do
+    {spawners, age_counts} = Map.pop(age_counts, 0, 0)
+
+    age_counts
+    |> Enum.map(fn
+      {age, count} -> {age - 1, count}
+    end)
+    |> Enum.into(%{})
+    |> Map.merge(%{6 => spawners, 8 => spawners}, fn _k, v1, v2 -> v1 + v2 end)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+days = 80
+
+data()
+|> Enum.at(0)
+|> String.split(",")
+|> Enum.map(&String.to_integer/1)
+|> Enum.frequencies()
+|> Stream.iterate(&step/1)
+# off by one
+|> Stream.take(days + 1)
+|> Enum.at(-1)
+|> Map.values()
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+days = 256
+
+data()
+|> Enum.at(0)
+|> String.split(",")
+|> Enum.map(&String.to_integer/1)
+|> Enum.frequencies()
+|> Stream.iterate(&step/1)
+# off by one
+|> Stream.take(days + 1)
+|> Enum.at(-1)
+|> Map.values()
+|> Enum.sum()
+```
