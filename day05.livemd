@@ -18,6 +18,7 @@ defmodule Helpers do
     "data/day05.txt"
     |> File.stream!()
     |> Stream.map(&String.trim/1)
+    |> Stream.map(&parse_line/1)
   end
 
   def parse_line(line) do
@@ -68,7 +69,6 @@ end
 import Helpers
 
 data()
-|> Stream.map(&parse_line/1)
 |> Stream.filter(fn coords -> horizontal?(coords) || vertical?(coords) end)
 |> Stream.flat_map(&points/1)
 |> Enum.frequencies()
@@ -82,7 +82,6 @@ data()
 import Helpers
 
 data()
-|> Stream.map(&parse_line/1)
 |> Stream.filter(fn coords -> horizontal?(coords) || vertical?(coords) || diagonal?(coords) end)
 |> Stream.flat_map(&points/1)
 |> Enum.frequencies()
