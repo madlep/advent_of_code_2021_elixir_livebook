@@ -10,8 +10,10 @@
 defmodule Helpers do
   def data() do
     "data/day06.txt"
-    |> File.stream!()
-    |> Stream.map(&String.trim/1)
+    |> File.read!()
+    |> String.trim()
+    |> String.split(",")
+    |> Enum.map(&String.to_integer/1)
   end
 
   def step(age_counts) do
@@ -32,17 +34,10 @@ end
 ```elixir
 import Helpers
 
-days = 80
-
 data()
-|> Enum.at(0)
-|> String.split(",")
-|> Enum.map(&String.to_integer/1)
 |> Enum.frequencies()
 |> Stream.iterate(&step/1)
-# off by one
-|> Stream.take(days + 1)
-|> Enum.at(-1)
+|> Enum.at(80)
 |> Map.values()
 |> Enum.sum()
 ```
@@ -52,17 +47,10 @@ data()
 ```elixir
 import Helpers
 
-days = 256
-
 data()
-|> Enum.at(0)
-|> String.split(",")
-|> Enum.map(&String.to_integer/1)
 |> Enum.frequencies()
 |> Stream.iterate(&step/1)
-# off by one
-|> Stream.take(days + 1)
-|> Enum.at(-1)
+|> Enum.at(256)
 |> Map.values()
 |> Enum.sum()
 ```
