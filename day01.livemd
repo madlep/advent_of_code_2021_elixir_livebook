@@ -1,0 +1,50 @@
+# Day 1
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day01.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def filter_increasing(values) do
+    values
+    |> Stream.chunk_every(2, 1, :discard)
+    |> Stream.filter(fn [a, b] -> b > a end)
+  end
+
+  def sliding_window(values, window_size) do
+    values
+    |> Stream.chunk_every(window_size, 1, :discard)
+    |> Stream.map(&Enum.sum/1)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&String.to_integer/1)
+|> filter_increasing()
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&String.to_integer/1)
+|> sliding_window(3)
+|> filter_increasing()
+|> Enum.count()
+```
