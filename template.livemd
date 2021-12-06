@@ -1,0 +1,29 @@
+<!-- vim: syntax=markdown -->
+# Day x
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day0x.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+```
+
+## Part 2
+
+```elixir
+import Helpers
+```
