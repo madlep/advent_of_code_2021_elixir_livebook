@@ -1,0 +1,184 @@
+<!-- vim: syntax=markdown -->
+
+# Day 4
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day04.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def parse(data) do
+    data_list =
+      data
+      |> Enum.to_list()
+
+    {numbers, data_list} = parse_numbers(data_list)
+    boards = parse_boards(data_list)
+
+    {numbers, boards}
+  end
+
+  def parse_numbers(data_list) do
+    [numbers | data_list] = data_list
+
+    numbers =
+      numbers
+      |> String.split(",")
+      |> Enum.map(&String.to_integer/1)
+
+    data_list = drop_empty_line(data_list)
+
+    {numbers, data_list}
+  end
+
+  def parse_boards(data_list, boards \\ []) do
+    {board, data_list} = parse_board(data_list)
+    boards = [board | boards]
+
+    case maybe_drop_empty_line(data_list) do
+      :eof -> Enum.reverse(boards)
+      data_list -> parse_boards(data_list, boards)
+    end
+  end
+
+  def parse_board(data_list) do
+    with {l1, data_list} <- parse_board_line(data_list),
+         {l2, data_list} <- parse_board_line(data_list),
+         {l3, data_list} <- parse_board_line(data_list),
+         {l4, data_list} <- parse_board_line(data_list),
+         {l5, data_list} <- parse_board_line(data_list) do
+      {Board.new([l1, l2, l3, l4, l5]), data_list}
+    end
+  end
+
+  def parse_board_line([line | data_list]) do
+    board_line =
+      line
+      |> String.split(~r{\s+})
+      |> Enum.map(&String.to_integer/1)
+
+    {board_line, data_list}
+  end
+
+  def drop_empty_line(["" | rest]), do: rest
+
+  def maybe_drop_empty_line(["" | rest]), do: rest
+  def maybe_drop_empty_line([]), do: :eof
+end
+```
+
+```elixir
+defmodule Board do
+  defstruct squares: :array.new(), value_lookup: %{}
+
+  def new(lines) do
+    numbers =
+      lines
+      |> List.flatten()
+
+    squares =
+      numbers
+      |> Enum.map(&{:not_called, &1})
+      |> :array.from_list()
+      |> :array.fix()
+
+    value_lookup =
+      numbers
+      |> Enum.with_index()
+      |> Enum.into(%{})
+
+    %__MODULE__{squares: squares, value_lookup: value_lookup}
+  end
+
+  def call_number(board, n) do
+    case board.value_lookup[n] do
+      nil ->
+        board
+
+      i ->
+        new_squares = :array.set(i, {:called, n}, board.squares)
+        %Board{board | squares: new_squares}
+    end
+  end
+
+  def bingo?(board) do
+    row_bingo?(board) || column_bingo?(board)
+  end
+
+  def uncalled_numbers(board) do
+    board.squares
+    |> :array.to_list()
+    |> Enum.filter(&match?({:not_called, _}, &1))
+    |> Enum.map(fn {:not_called, n} -> n end)
+  end
+
+  @row_count 5
+  @column_count 5
+
+  defp row_bingo?(board) do
+    for r <- 0..(@row_count - 1) do
+      for c <- 0..(@column_count - 1) do
+        match?({:called, _}, :array.get(r * @row_count + c, board.squares))
+      end
+      |> Enum.all?()
+    end
+    |> Enum.any?()
+  end
+
+  defp column_bingo?(board) do
+    for c <- 0..(@column_count - 1) do
+      for r <- 0..(@row_count - 1) do
+        match?({:called, _}, :array.get(r * @row_count + c, board.squares))
+      end
+      |> Enum.all?()
+    end
+    |> Enum.any?()
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+{numbers, boards} = data() |> parse()
+
+numbers
+|> Enum.reduce_while(boards, fn n, boards_acc ->
+  boards_acc
+  |> Enum.map(&Board.call_number(&1, n))
+  |> Enum.group_by(&Board.bingo?/1)
+  |> case do
+    %{true => [board]} -> {:halt, n * (board |> Board.uncalled_numbers() |> Enum.sum())}
+    %{false => boards} -> {:cont, boards}
+  end
+end)
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+{numbers, boards} = data() |> parse()
+
+numbers
+|> Enum.reduce_while(boards, fn n, boards_acc ->
+  boards_acc
+  |> Enum.map(&Board.call_number(&1, n))
+  |> Enum.group_by(&Board.bingo?/1)
+  |> case do
+    %{true => [_board], false => boards} -> {:cont, boards}
+    %{false => boards} -> {:cont, boards}
+    %{true => [board]} -> {:halt, n * (board |> Board.uncalled_numbers() |> Enum.sum())}
+  end
+end)
+```
