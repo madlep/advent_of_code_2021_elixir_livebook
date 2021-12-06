@@ -1,0 +1,99 @@
+# Day 3
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  use Bitwise
+
+  def data() do
+    "data/day03.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def string_to_intlist(s) do
+    s
+    |> String.graphemes()
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  def add_lines(l1, l2) when length(l1) == length(l2) do
+    l1
+    |> Enum.zip(l2)
+    |> Enum.map(fn {n1, n2} -> n1 + n2 end)
+  end
+
+  def list_to_dec(l) do
+    l
+    |> Enum.join("")
+    |> String.to_integer(2)
+  end
+
+  def string_to_int2(s) do
+    s
+    |> String.to_integer(2)
+  end
+
+  def filter_common_bit([result], _bit, _most_common), do: result
+
+  def filter_common_bit(data, bit, most_common) when bit >= 0 and most_common in [true, false] do
+    data
+    |> Enum.group_by(fn n -> (n &&& 1 <<< bit) > 0 end)
+    |> then(fn result ->
+      if length(result[false]) > length(result[true]) do
+        filter_common_bit(result[!most_common], bit - 1, most_common)
+      else
+        filter_common_bit(result[most_common], bit - 1, most_common)
+      end
+    end)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data_list = data() |> Enum.to_list()
+
+cutoff = length(data_list) / 2
+
+totals =
+  data_list
+  |> Stream.map(&string_to_intlist/1)
+  |> Enum.reduce(&add_lines/2)
+
+gamma =
+  totals
+  |> Enum.map(&if &1 >= cutoff, do: 1, else: 0)
+  |> list_to_dec()
+
+epsilon =
+  totals
+  |> Enum.map(&if &1 < cutoff, do: 1, else: 0)
+  |> list_to_dec()
+
+gamma * epsilon
+```
+
+## Part 2
+
+```elixir
+import Helpers
+use Bitwise
+
+data_list =
+  data()
+  |> Enum.map(&string_to_int2/1)
+
+bit_count = 12
+
+oxygen = filter_common_bit(data_list, bit_count - 1, true)
+co2 = filter_common_bit(data_list, bit_count - 1, false)
+
+oxygen * co2
+```
