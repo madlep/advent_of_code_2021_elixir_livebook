@@ -1,0 +1,55 @@
+# Day 2
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day02.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def parse_line(line) do
+    line
+    |> String.split()
+    |> build_command()
+  end
+
+  def build_command([dir, n]) when dir in ["forward", "up", "down"] do
+    {String.to_existing_atom(dir), String.to_integer(n)}
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&parse_line/1)
+|> Enum.reduce({0, 0}, fn
+  {:forward, n}, {depth, distance} -> {depth, distance + n}
+  {:up, n}, {depth, distance} -> {depth - n, distance}
+  {:down, n}, {depth, distance} -> {depth + n, distance}
+end)
+|> then(fn {depth, distance} -> depth * distance end)
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&parse_line/1)
+|> Enum.reduce({0, 0, 0}, fn
+  {:forward, n}, {depth, distance, aim} -> {depth + aim * n, distance + n, aim}
+  {:up, n}, {depth, distance, aim} -> {depth, distance, aim - n}
+  {:down, n}, {depth, distance, aim} -> {depth, distance, aim + n}
+end)
+|> then(fn {depth, distance, _aim} -> depth * distance end)
+```
