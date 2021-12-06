@@ -1,0 +1,91 @@
+<!-- vim: syntax=markdown -->
+
+# Day 5
+
+## Helpers
+
+```elixir
+Mix.install([
+  {:nimble_parsec, "~> 1.2"}
+])
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day05.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def parse_line(line) do
+    {:ok, [x1, y1, x2, y2], "", _, _, _} = Parser.vent_line(line)
+    {x1, y1, x2, y2}
+  end
+
+  def horizontal?({x1, _y1, x2, _y2}), do: x1 == x2
+  def vertical?({_x1, y1, _x2, y2}), do: y1 == y2
+  def diagonal?({x1, y1, x2, y2}), do: abs(x2 - x1) == abs(y2 - y1)
+
+  # vertical points
+  def points({x, y1, x, y2}), do: for(y <- y1..y2, do: {x, y})
+  # horizontal points
+  def points({x1, y, x2, y}), do: for(x <- x1..x2, do: {x, y})
+  # diagonal points sloping down
+  def points({x1, y1, x2, y2}) when x2 - x1 == y2 - y1 do
+    for i <- 0..(x2 - x1), do: {x1 + i, y1 + i}
+  end
+
+  # diagonal points sloping up
+  def points({x1, y1, x2, y2}) when x2 - x1 == y1 - y2 do
+    for i <- 0..(x2 - x1), do: {x1 + i, y1 - i}
+  end
+end
+```
+
+```elixir
+defmodule Parser do
+  import NimbleParsec
+
+  defparsec(
+    :vent_line,
+    integer(min: 1, max: 3)
+    |> ignore(string(","))
+    |> integer(min: 1, max: 3)
+    |> ignore(string(" -> "))
+    |> integer(min: 1, max: 3)
+    |> ignore(string(","))
+    |> integer(min: 1, max: 3)
+  )
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&parse_line/1)
+|> Stream.filter(fn coords -> horizontal?(coords) || vertical?(coords) end)
+|> Stream.flat_map(&points/1)
+|> Enum.frequencies()
+|> Enum.filter(fn {_p, count} -> count >= 2 end)
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&parse_line/1)
+|> Stream.filter(fn coords -> horizontal?(coords) || vertical?(coords) || diagonal?(coords) end)
+|> Stream.flat_map(&points/1)
+|> Enum.frequencies()
+|> Enum.filter(fn {_p, count} -> count >= 2 end)
+|> Enum.count()
+```
