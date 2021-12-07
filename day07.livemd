@@ -1,0 +1,60 @@
+<!-- vim: syntax=markdown -->
+
+# Day 7
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day07.txt"
+    |> File.read!()
+    |> String.trim()
+    |> String.split(",")
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  def cost(ls, pos) do
+    ls
+    |> Enum.reduce(0, &(abs(&1 - pos) + &2))
+  end
+
+  def incr_cost(ls, pos) do
+    ls
+    |> Enum.reduce(0, fn l, tc ->
+      dist = abs(l - pos)
+      div(dist * (dist + 1), 2) + tc
+    end)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+locs = data()
+{min_loc, max_loc} = Enum.min_max(locs)
+
+for loc <- min_loc..max_loc do
+  cost(locs, loc)
+end
+|> Enum.min()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+locs = data()
+{min_loc, max_loc} = Enum.min_max(locs)
+
+for loc <- min_loc..max_loc do
+  incr_cost(locs, loc)
+end
+|> Enum.min()
+```
