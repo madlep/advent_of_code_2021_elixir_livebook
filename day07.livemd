@@ -4,6 +4,15 @@
 
 ## Helpers
 
+```elixir
+Mix.install([
+  {:vega_lite, "~> 0.1.2"},
+  {:kino, "~> 0.3.1"}
+])
+
+alias VegaLite, as: Vl
+```
+
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
@@ -39,10 +48,18 @@ import Helpers
 locs = data()
 {min_loc, max_loc} = Enum.min_max(locs)
 
-for loc <- min_loc..max_loc do
-  cost(locs, loc)
-end
-|> Enum.min()
+costs =
+  for loc <- min_loc..max_loc do
+    cost(locs, loc)
+  end
+
+costs |> Enum.min() |> IO.inspect()
+
+Vl.new(title: "Constant cost per distance moved", width: 400, height: 400)
+|> Vl.data_from_series(location: min_loc..max_loc, cost: costs)
+|> Vl.mark(:line)
+|> Vl.encode_field(:x, "location", type: :quantitative)
+|> Vl.encode_field(:y, "cost", type: :quantitative)
 ```
 
 ## Part 2
@@ -53,8 +70,16 @@ import Helpers
 locs = data()
 {min_loc, max_loc} = Enum.min_max(locs)
 
-for loc <- min_loc..max_loc do
-  incr_cost(locs, loc)
-end
-|> Enum.min()
+incr_costs =
+  for loc <- min_loc..max_loc do
+    incr_cost(locs, loc)
+  end
+
+incr_costs |> Enum.min() |> IO.inspect()
+
+Vl.new(title: "Increasing cost based on distance moved", width: 400, height: 400)
+|> Vl.data_from_series(location: min_loc..max_loc, cost: incr_costs)
+|> Vl.mark(:line)
+|> Vl.encode_field(:x, "location", type: :quantitative)
+|> Vl.encode_field(:y, "cost", type: :quantitative)
 ```
