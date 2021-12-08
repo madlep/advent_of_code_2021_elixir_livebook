@@ -1,0 +1,208 @@
+<!-- vim: syntax=markdown -->
+
+# Day 8
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day08.txt"
+    |> File.stream!()
+    |> Stream.map(&parse_line/1)
+  end
+
+  def parse_line(line) do
+    line
+    |> String.trim()
+    |> String.split(" | ")
+    |> Enum.map(&String.split(&1, " "))
+    |> parse_segments()
+  end
+
+  def parse_segments([notes, patterns]) do
+    {
+      notes |> Enum.map(&parse_number/1) |> Enum.sort_by(&length/1),
+      patterns |> Enum.map(&parse_number/1)
+    }
+  end
+
+  def parse_number(s), do: s |> String.graphemes() |> Enum.sort()
+
+  def int_list_to_int(ints) do
+    ints
+    |> Enum.reverse()
+    |> Enum.reduce({0, 1}, fn n, {total, exp} -> {total + n * exp, exp * 10} end)
+    |> then(fn {n, _exp} -> n end)
+  end
+end
+```
+
+```elixir
+defmodule EasyDisplay do
+  def digit(segments) when length(segments) == 2, do: 1
+  def digit(segments) when length(segments) == 4, do: 4
+  def digit(segments) when length(segments) == 3, do: 7
+  def digit(segments) when length(segments) == 7, do: 8
+  def digit(_), do: nil
+
+  def digits(digits_segments) do
+    digits_segments
+    |> Enum.map(&digit/1)
+    |> Enum.filter(& &1)
+  end
+end
+```
+
+```elixir
+defmodule Display do
+  #  aaaa
+  # b    c
+  # b    c
+  #  dddd
+  # e    f
+  # e    f
+  #  gggg
+
+  @segments ~w{a b c d e f g}
+
+  defstruct [:segment_mapping]
+
+  def new(segments) do
+    display = %__MODULE__{
+      segment_mapping:
+        @segments
+        |> Enum.map(&{&1, Segment.new(&1)})
+        |> Enum.into(%{})
+    }
+
+    Enum.reduce(segments, display, &deduce(&2, &1))
+  end
+
+  # 2 segments - must be 1
+  def deduce(display, segments) when length(segments) == 2 do
+    display
+    |> update(:maybe, segments, ~w{c f})
+    |> update(:nope, segments, ~w{a b d e g})
+    |> update(:nope, @segments -- segments, ~w{c f})
+  end
+
+  # 3 segments - must be 7
+  def deduce(display, segments) when length(segments) == 3 do
+    display
+    |> update(:maybe, segments, ~w{a c f})
+    |> update(:nope, segments, ~w{b d e g})
+    |> update(:nope, @segments -- segments, ~w{a c f})
+  end
+
+  # 4 segments - must be 4
+  def deduce(display, segments) when length(segments) == 4 do
+    display
+    |> update(:maybe, segments, ~w{b c d f})
+    |> update(:nope, segments, ~w{a e g})
+    |> update(:nope, @segments -- segments, ~w{b c d f})
+  end
+
+  # 5 segments - maybe 2 or 3 or 5
+  def deduce(display, segments) when length(segments) == 5 do
+    display
+    |> update(:maybe, segments, @segments)
+  end
+
+  # 6 segments - maybe 0 or 6 or 9
+  def deduce(display, segments) when length(segments) == 6 do
+    display
+    |> update(:maybe, segments, @segments)
+  end
+
+  # 7 segments - must be 8
+  def deduce(display, segments) when length(segments) == 7 do
+    display
+    |> update(:maybe, segments, @segments)
+  end
+
+  defp update(display, state, froms, tos) do
+    for f <- froms, t <- tos, reduce: display do
+      acc ->
+        %__MODULE__{
+          acc
+          | segment_mapping: Map.update!(acc.segment_mapping, f, &Segment.update(&1, state, t))
+        }
+    end
+  end
+
+  def digit(_display, from) when length(from) in [2, 3, 4, 7], do: EasyDisplay.digit(from)
+
+  def digit(display, from) do
+    from
+    |> Enum.map(&Segment.maybes(display.segment_mapping[&1]))
+    |> Enum.sort()
+    |> case do
+      [["a"], ["b", "d"], ["c", "f"], ["c", "f"], ["e", "g"], ["e", "g"]] -> 0
+      [["a"], ["b", "d"], ["c", "f"], ["e", "g"], ["e", "g"]] -> 2
+      [["a"], ["b", "d"], ["c", "f"], ["c", "f"], ["e", "g"]] -> 3
+      [["a"], ["b", "d"], ["b", "d"], ["c", "f"], ["e", "g"]] -> 5
+      [["a"], ["b", "d"], ["b", "d"], ["c", "f"], ["e", "g"], ["e", "g"]] -> 6
+      [["a"], ["b", "d"], ["b", "d"], ["c", "f"], ["c", "f"], ["e", "g"]] -> 9
+    end
+  end
+end
+```
+
+```elixir
+defmodule Segment do
+  defstruct [:from, :possible_tos]
+
+  def new(from) do
+    possible_tos =
+      ~w{a b c d e f g}
+      |> Enum.map(&{&1, :unknown})
+      |> Enum.into(%{})
+
+    %__MODULE__{from: from, possible_tos: possible_tos}
+  end
+
+  def update(number, state, to) do
+    %__MODULE__{
+      number
+      | possible_tos: Map.update!(number.possible_tos, to, &transition(&1, state))
+    }
+  end
+
+  def transition(:unknown, new), do: new
+  def transition(_old, :nope), do: :nope
+  def transition(:nope, _new), do: :nope
+  def transition(same, same), do: same
+
+  def maybes(segment) do
+    segment.possible_tos
+    |> Enum.filter(fn {_k, v} -> v == :maybe end)
+    |> Enum.map(fn {k, _v} -> k end)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(fn {_notes, outputs} -> outputs end)
+|> Stream.flat_map(&EasyDisplay.digits/1)
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(fn {segments, inputs} -> {Display.new(segments), inputs} end)
+|> Stream.map(fn {display, inputs} -> Enum.map(inputs, &Display.digit(display, &1)) end)
+|> Stream.map(&int_list_to_int/1)
+|> Enum.sum()
+```
