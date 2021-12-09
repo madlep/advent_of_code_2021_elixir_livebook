@@ -1,0 +1,152 @@
+<!-- vim: syntax=markdown -->
+
+# Day 9
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day09.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> Enum.flat_map(&str_to_ints/1)
+  end
+
+  def str_to_ints(str) do
+    str
+    |> Stream.unfold(fn
+      <<c::integer-8, rest::binary>> when c in ?0..?9 -> {c - ?0, rest}
+      <<>> -> nil
+    end)
+    |> Enum.to_list()
+  end
+end
+```
+
+```elixir
+defmodule HeightMap do
+  defstruct [:data, :width, :height]
+
+  def new(heights, width \\ 100, height \\ 100) do
+    data =
+      heights
+      |> Enum.to_list()
+      |> :array.from_list()
+
+    %__MODULE__{data: data, width: width, height: height}
+  end
+
+  def reduce_points(hm, acc, f) do
+    for x <- 0..(hm.width - 1), y <- 0..(hm.height - 1), reduce: acc do
+      current_acc -> f.({x, y}, current_acc)
+    end
+  end
+
+  def lowpoint?(hm, x, y) do
+    height = height(hm, x, y)
+
+    if neighbours(hm, x, y) |> Enum.all?(fn {_nx, _ny, nheight} -> height < nheight end) do
+      height
+    else
+      nil
+    end
+  end
+
+  def neighbours(hm, x, y) do
+    neighbour_points(x, y)
+    |> Enum.map(fn {nx, ny} -> {nx, ny, height(hm, nx, ny)} end)
+    # skip out of bounds at edge/corner
+    |> Enum.filter(fn {_nx, _ny, height} -> height end)
+  end
+
+  def neighbour_points(x, y) do
+    [
+      # north
+      {x, y - 1},
+      # east
+      {x + 1, y},
+      # south
+      {x, y + 1},
+      # west
+      {x - 1, y}
+    ]
+  end
+
+  def height(%__MODULE__{width: w, height: h}, x, y)
+      when x not in 0..(w - 1) or y not in 0..(h - 1) do
+    nil
+  end
+
+  def height(hm, x, y) do
+    i = x + y * hm.width
+    :array.get(i, hm.data)
+  end
+
+  def basin(hm, x, y) do
+    case height(hm, x, y) do
+      9 -> nil
+      height -> do_basin(hm, {x, y, height}, MapSet.new())
+    end
+  end
+
+  defp do_basin(hm, {x, y, height}, basin_points) do
+    cond do
+      height == 9 ->
+        basin_points
+
+      MapSet.member?(basin_points, {x, y}) ->
+        basin_points
+
+      true ->
+        hm
+        |> neighbours(x, y)
+        |> Enum.reduce(MapSet.put(basin_points, {x, y}), &do_basin(hm, &1, &2))
+    end
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+hm = HeightMap.new(data())
+
+hm
+|> HeightMap.reduce_points([], fn {x, y}, acc ->
+  case HeightMap.lowpoint?(hm, x, y) do
+    height when is_integer(height) -> [height | acc]
+    nil -> acc
+  end
+end)
+|> Enum.map(&(&1 + 1))
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+hm = HeightMap.new(data())
+
+hm
+|> HeightMap.reduce_points([], fn {x, y}, basins ->
+  if basins |> Enum.any?(&MapSet.member?(&1, {x, y})) do
+    basins
+  else
+    case HeightMap.basin(hm, x, y) do
+      basin when is_struct(basin, MapSet) -> [basin | basins]
+      nil -> basins
+    end
+  end
+end)
+|> Enum.map(&Enum.count/1)
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.product()
+```
