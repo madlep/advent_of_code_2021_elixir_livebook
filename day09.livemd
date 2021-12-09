@@ -147,7 +147,7 @@ points =
     [%{x: x, y: y, height: height, lowpoint: lowpoint} | acc]
   end)
 
-Vl.new(title: "low points", width: 600, height: 600)
+Vl.new(title: "low points", width: 800, height: 800)
 |> Vl.data_from_values(points)
 |> Vl.encode_field(:x, "x", type: :quantitative)
 |> Vl.encode_field(:y, "y", type: :quantitative)
@@ -157,11 +157,10 @@ Vl.new(title: "low points", width: 600, height: 600)
   |> Vl.encode_field(:color, "height", aggregate: :max, type: :quantitative, legend: [title: nil])
   |> Vl.mark(:rect),
   Vl.new()
-  |> Vl.mark(:point, filled: true, color: "red")
+  |> Vl.mark(:text, text: "☠️")
   |> Vl.encode_field(:size, "lowpoint",
-    # aggregate: :min,
     type: :quantitative,
-    scale: [zero: false]
+    scale: [zero: false, reverse: true]
   )
 ])
 ```
@@ -173,17 +172,20 @@ import Helpers
 
 hm = HeightMap.new(data())
 
-hm
-|> HeightMap.reduce_points([], fn {x, y}, basins ->
-  if basins |> Enum.any?(&MapSet.member?(&1, {x, y})) do
-    basins
-  else
-    case HeightMap.basin(hm, x, y) do
-      basin when is_struct(basin, MapSet) -> [basin | basins]
-      nil -> basins
+bs =
+  hm
+  |> HeightMap.reduce_points([], fn {x, y}, basins ->
+    if basins |> Enum.any?(&MapSet.member?(&1, {x, y})) do
+      basins
+    else
+      case HeightMap.basin(hm, x, y) do
+        basin when is_struct(basin, MapSet) -> [basin | basins]
+        nil -> basins
+      end
     end
-  end
-end)
+  end)
+
+bs
 |> Enum.map(&Enum.count/1)
 |> Enum.sort(:desc)
 |> Enum.take(3)
