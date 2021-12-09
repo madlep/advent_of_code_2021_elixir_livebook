@@ -4,6 +4,15 @@
 
 ## Helpers
 
+```elixir
+Mix.install([
+  {:vega_lite, "~> 0.1.2"},
+  {:kino, "~> 0.4.1"}
+])
+
+alias VegaLite, as: Vl
+```
+
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
@@ -125,6 +134,36 @@ hm
 end)
 |> Enum.map(&(&1 + 1))
 |> Enum.sum()
+```
+
+```elixir
+hm = HeightMap.new(data())
+
+points =
+  hm
+  |> HeightMap.reduce_points([], fn {x, y}, acc ->
+    height = HeightMap.height(hm, x, y)
+    lowpoint = HeightMap.lowpoint?(hm, x, y)
+    [%{x: x, y: y, height: height, lowpoint: lowpoint} | acc]
+  end)
+
+Vl.new(title: "low points", width: 600, height: 600)
+|> Vl.data_from_values(points)
+|> Vl.encode_field(:x, "x", type: :quantitative)
+|> Vl.encode_field(:y, "y", type: :quantitative)
+|> Vl.config(view: [stroke: nil])
+|> Vl.layers([
+  Vl.new()
+  |> Vl.encode_field(:color, "height", aggregate: :max, type: :quantitative, legend: [title: nil])
+  |> Vl.mark(:rect),
+  Vl.new()
+  |> Vl.mark(:point, filled: true, color: "red")
+  |> Vl.encode_field(:size, "lowpoint",
+    # aggregate: :min,
+    type: :quantitative,
+    scale: [zero: false]
+  )
+])
 ```
 
 ## Part 2
