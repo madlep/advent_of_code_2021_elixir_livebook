@@ -1,0 +1,70 @@
+<!-- vim: syntax=markdown -->
+
+# Day 10
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day10.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  @opens ~w{ ( [ < { }
+
+  def check(str, stack \\ [])
+  def check(<<>>, []), do: :ok
+  def check(<<>>, stack) when stack != [], do: {:error, :eos, stack}
+  def check(<<c::bytes-1, rest::binary>>, stack) when c in @opens, do: check(rest, [c | stack])
+  def check(<<")", rest::binary>>, ["(" | stack]), do: check(rest, stack)
+  def check(<<"]", rest::binary>>, ["[" | stack]), do: check(rest, stack)
+  def check(<<">", rest::binary>>, ["<" | stack]), do: check(rest, stack)
+  def check(<<"}", rest::binary>>, ["{" | stack]), do: check(rest, stack)
+  def check(<<c::bytes-1, _rest::binary>>, _stack), do: {:error, :unexpected, c}
+
+  def error_score(")"), do: 3
+  def error_score("]"), do: 57
+  def error_score("}"), do: 1197
+  def error_score(">"), do: 25137
+
+  def complete_score("("), do: 1
+  def complete_score("["), do: 2
+  def complete_score("{"), do: 3
+  def complete_score("<"), do: 4
+  def complete_scores(stack), do: stack |> Enum.reduce(0, &(&2 * 5 + complete_score(&1)))
+
+  def mid(list), do: list |> Enum.at(list |> length() |> div(2))
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&check/1)
+|> Stream.filter(&match?({:error, :unexpected, _actual}, &1))
+|> Stream.map(fn {:error, :unexpected, actual} -> actual end)
+|> Stream.map(&error_score/1)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&check/1)
+|> Stream.filter(&match?({:error, :eos, _stack}, &1))
+|> Stream.map(fn {:error, :eos, stack} -> stack end)
+|> Stream.map(&complete_scores/1)
+|> Enum.to_list()
+|> Enum.sort()
+|> mid()
+```
