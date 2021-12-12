@@ -1,0 +1,174 @@
+<!-- vim: syntax=markdown -->
+
+# Day 11
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day11.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def str_to_int_list(str) do
+    str
+    |> String.graphemes()
+    |> Enum.map(&String.to_integer/1)
+  end
+end
+```
+
+```elixir
+defmodule Cavern do
+  defstruct octopi: %{}, flashes: [], width: 10, height: 10, synchronized?: false
+
+  def new(octopi_energies, width, height) do
+    octopi =
+      octopi_energies
+      |> Enum.with_index(fn row, y ->
+        row
+        |> Enum.with_index(fn energy, x -> {{x, y}, Octopus.new(energy)} end)
+      end)
+      |> Enum.concat()
+      |> Enum.into(%{})
+
+    %Cavern{octopi: octopi, width: width, height: height}
+  end
+
+  def step(cavern) do
+    cavern
+    |> charge()
+    |> flash()
+    |> check_sychronized()
+    |> reset()
+  end
+
+  def charge(cavern) do
+    %Cavern{cavern | octopi: cavern.octopi |> Map.map(fn {_coord, o} -> Octopus.charge(o) end)}
+  end
+
+  def flash(cavern) do
+    flashes_start = cavern.flashes |> length()
+
+    cavern =
+      cavern.octopi
+      |> Map.filter(fn {_k, o} -> Octopus.flash?(o) end)
+      |> Enum.reduce(cavern, fn {coord, octopus}, cavern_acc ->
+        if octopus.flashed? do
+          cavern_acc
+        else
+          %Cavern{
+            cavern_acc
+            | octopi: cavern_acc.octopi |> Map.update!(coord, &Octopus.flash/1),
+              flashes: [coord | cavern_acc.flashes]
+          }
+          |> propagate(coord)
+        end
+      end)
+
+    if cavern.flashes |> length() > flashes_start do
+      flash(cavern)
+    else
+      cavern
+    end
+  end
+
+  defp propagate(cavern, origin_coord) do
+    origin_coord
+    |> neighbour_coords(cavern)
+    |> Enum.reduce(cavern, fn neighbour_coord, acc ->
+      %Cavern{acc | octopi: acc.octopi |> Map.update!(neighbour_coord, &Octopus.charge/1)}
+    end)
+  end
+
+  def reset(cavern) do
+    %Cavern{cavern | octopi: cavern.octopi |> Map.map(fn {_k, o} -> Octopus.maybe_reset(o) end)}
+  end
+
+  def check_sychronized(cavern) do
+    %Cavern{
+      cavern
+      | synchronized?: cavern.octopi |> Enum.all?(fn {_k, o} -> Octopus.flash?(o) end)
+    }
+  end
+
+  defp neighbour_coords({x, y}, cavern) do
+    [
+      # north
+      {x, y - 1},
+      # northeast
+      {x + 1, y - 1},
+      # east
+      {x + 1, y},
+      # southeast
+      {x + 1, y + 1},
+      # south
+      {x, y + 1},
+      # southwest
+      {x - 1, y + 1},
+      # west
+      {x - 1, y},
+      # northwest
+      {x - 1, y - 1}
+    ]
+    |> Enum.filter(fn {cx, cy} -> cx in 0..(cavern.width - 1) && cy in 0..(cavern.height - 1) end)
+  end
+end
+```
+
+```elixir
+defmodule Octopus do
+  defstruct energy: 0, flashed?: false
+
+  @flashpoint 9
+
+  def new(energy, flashed? \\ false), do: %Octopus{energy: energy, flashed?: flashed?}
+
+  def charge(octopus), do: %Octopus{octopus | energy: octopus.energy + 1}
+
+  def flash?(octopus), do: octopus.energy > @flashpoint
+
+  def flash(octopus), do: %Octopus{octopus | flashed?: true}
+
+  def maybe_reset(%Octopus{energy: energy, flashed?: true}) when energy > 9, do: new(0)
+  def maybe_reset(octopus = %Octopus{flashed?: false}), do: octopus
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+width = 10
+height = 10
+
+data()
+|> Stream.map(&str_to_int_list/1)
+|> Cavern.new(width, height)
+|> Stream.unfold(&{&1, Cavern.step(&1)})
+|> Enum.at(100)
+|> then(&(&1.flashes |> length()))
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+width = 10
+height = 10
+
+data()
+|> Stream.map(&str_to_int_list/1)
+|> Cavern.new(width, height)
+|> Stream.unfold(&{&1, Cavern.step(&1)})
+|> Stream.with_index()
+|> Stream.filter(fn {cavern, _n} -> cavern.synchronized? end)
+|> Enum.at(0)
+|> then(fn {_c, n} -> n end)
+```
