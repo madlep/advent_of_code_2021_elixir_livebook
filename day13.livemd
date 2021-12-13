@@ -1,0 +1,138 @@
+<!-- vim: syntax=markdown -->
+
+# Day 13
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day13.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+
+  def parse(data) do
+    data
+    |> Enum.reduce({[], []}, &parse_line/2)
+    |> then(fn {coords, folds} -> Paper.new(Enum.reverse(coords), Enum.reverse(folds)) end)
+  end
+
+  @fold_re ~r{fold along ([xy])=(\d+)}
+  @coord_re ~r{(\d+),(\d+)}
+
+  def parse_line(s = "fold" <> _, {coords, folds}) do
+    [[^s, axis, position]] = Regex.scan(@fold_re, s)
+    axis = axis |> String.to_existing_atom()
+    position = position |> String.to_integer()
+    {coords, [{axis, position} | folds]}
+  end
+
+  def parse_line("", acc), do: acc
+
+  def parse_line(s, {coords, folds}) do
+    [[^s, x, y]] = Regex.scan(@coord_re, s)
+    x = x |> String.to_integer()
+    y = y |> String.to_integer()
+    {[{x, y} | coords], folds}
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Paper do
+  defstruct coords: MapSet.new(), folds: [], width: 0, height: 0
+
+  def new(coords, folds) do
+    {width, height} =
+      coords
+      |> Enum.reduce({0, 0}, fn {x, y}, {width, height} -> {max(x, width), max(y, height)} end)
+
+    %Paper{coords: MapSet.new(coords), folds: Enum.to_list(folds), width: width, height: height}
+  end
+
+  def fold(p = %Paper{folds: []}), do: p
+
+  def fold(p = %Paper{folds: [f | fs]}) do
+    %Paper{
+      p
+      | coords: do_fold(f, p.coords),
+        folds: fs,
+        width: fold_width(p.width, f),
+        height: fold_height(p.height, f)
+    }
+  end
+
+  def fold_all(paper) do
+    if folded?(paper) do
+      paper
+    else
+      paper
+      |> fold()
+      |> fold_all()
+    end
+  end
+
+  defp do_fold({:x, position}, coords) do
+    coords
+    |> Enum.map(fn
+      {cx, cy} when cx > position -> {position - (cx - position), cy}
+      {cx, cy} when cx < position -> {cx, cy}
+    end)
+    |> MapSet.new()
+  end
+
+  defp do_fold({:y, position}, coords) do
+    coords
+    |> Enum.map(fn
+      {cx, cy} when cy > position -> {cx, position - (cy - position)}
+      {cx, cy} when cy < position -> {cx, cy}
+    end)
+    |> MapSet.new()
+  end
+
+  def folded?(paper), do: paper.folds == []
+
+  defp fold_width(_width, {:x, position}), do: position
+  defp fold_width(width, _), do: width
+  defp fold_height(_height, {:y, position}), do: position
+  defp fold_height(height, _), do: height
+
+  def to_string(paper) do
+    for y <- 0..(paper.height - 0) do
+      for x <- 0..(paper.width - 0) do
+        if MapSet.member?(paper.coords, {x, y}), do: "*", else: " "
+      end
+      |> Enum.join()
+    end
+    |> Enum.join("\n")
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> parse()
+|> Paper.fold()
+|> then(&(&1.coords |> Enum.count()))
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> parse()
+|> Paper.fold_all()
+|> Paper.to_string()
+|> IO.puts()
+```
