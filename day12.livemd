@@ -1,0 +1,135 @@
+<!-- vim: syntax=markdown -->
+
+# Day 12
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day12.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Cave do
+  defstruct name: nil, links: MapSet.new(), size: nil
+
+  def new(name), do: %Cave{name: name, size: calc_size(name)}
+
+  def add_link(cave, to_name), do: %Cave{cave | links: cave.links |> MapSet.put(to_name)}
+
+  def calc_size(name) do
+    cond do
+      String.match?(name, ~r{^[A-Z]+$}) -> :big
+      String.match?(name, ~r{^[a-z]+$}) -> :small
+    end
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule CaveSystem do
+  def new() do
+    %{}
+  end
+
+  def add_link(cave_system, from_name, to_name) do
+    from =
+      cave_system
+      |> Map.get(from_name, Cave.new(from_name))
+      |> Cave.add_link(to_name)
+
+    to =
+      cave_system
+      |> Map.get(to_name, Cave.new(to_name))
+      |> Cave.add_link(from_name)
+
+    cave_system
+    |> Map.put(from_name, from)
+    |> Map.put(to_name, to)
+  end
+
+  def paths(
+        cave_system,
+        from_name,
+        to_name,
+        revisit \\ false,
+        current_path \\ [],
+        found_paths \\ []
+      )
+
+  def paths(cave_system, name, name, _revisit, current_path, found) do
+    cave = cave_system[name]
+    path = [{cave.name, cave.size} | current_path] |> Enum.reverse()
+    [path | found]
+  end
+
+  def paths(cave_system, from_name, to_name, revisit, current_path, found) do
+    from = cave_system[from_name]
+    current_path = [{from.name, from.size} | current_path]
+
+    from.links
+    |> Enum.map(&cave_system[&1])
+    |> Enum.filter(&can_visit?(&1, current_path, revisit))
+    |> Enum.reduce(found, fn cave, acc ->
+      paths(cave_system, cave.name, to_name, revisit, current_path, acc)
+    end)
+  end
+
+  def can_visit?(%Cave{size: :big}, _visited, _revisit), do: true
+  def can_visit?(%Cave{name: "start"}, _visited, _revisit), do: false
+
+  def can_visit?(c = %Cave{size: :small}, visited, false),
+    do: !Enum.member?(visited, {c.name, c.size})
+
+  def can_visit?(c = %Cave{size: :small}, visited, true) do
+    small_visited =
+      visited
+      |> Enum.filter(&match?({_, :small}, &1))
+
+    if small_visited |> Enum.frequencies() |> Map.values() |> Enum.max() <= 1 do
+      true
+    else
+      can_visit?(c, visited, false)
+    end
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&String.split(&1, "-"))
+|> Enum.reduce(CaveSystem.new(), fn [from_name, to_name], cs ->
+  cs |> CaveSystem.add_link(from_name, to_name)
+end)
+|> then(&CaveSystem.paths(&1, "start", "end"))
+|> length()
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+data()
+|> Stream.map(&String.split(&1, "-"))
+|> Enum.reduce(CaveSystem.new(), fn [from_name, to_name], cs ->
+  cs |> CaveSystem.add_link(from_name, to_name)
+end)
+|> then(&CaveSystem.paths(&1, "start", "end", true))
+|> length()
+```
