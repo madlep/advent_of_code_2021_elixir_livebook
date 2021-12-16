@@ -1,0 +1,106 @@
+<!-- vim: syntax=markdown -->
+
+# Day 14
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day14.txt"
+    |> File.stream!()
+    |> Stream.map(&String.trim/1)
+    |> parse()
+  end
+
+  def parse(data) do
+    template = data |> Enum.at(0) |> build_template()
+    insertions = data |> Stream.drop(2) |> build_insertions()
+    {template, insertions}
+  end
+
+  def build_template(str) do
+    str
+    |> String.graphemes()
+    |> Enum.map(&String.to_atom/1)
+    |> Enum.chunk_every(2, 1, [nil])
+    |> Enum.map(&List.to_tuple/1)
+    |> Enum.frequencies()
+  end
+
+  def build_insertions(insertions_list) do
+    insertions_list
+    |> Enum.map(&build_insertion/1)
+    |> Enum.into(%{})
+  end
+
+  @pair_re ~r{^(\w)(\w) -> (\w)$}
+  def build_insertion(pair_str) do
+    [^pair_str, l, r, i] = Regex.run(@pair_re, pair_str)
+    l = String.to_atom(l)
+    r = String.to_atom(r)
+    i = String.to_atom(i)
+    {{l, r}, [{l, i}, {i, r}]}
+  end
+
+  def insert(template, insertions) do
+    template
+    |> Enum.reduce(%{}, fn {pair, count}, acc ->
+      insertions
+      |> Map.get(pair, [pair])
+      |> Enum.reduce(acc, fn inserted_pair, acc2 ->
+        acc2 |> Map.update(inserted_pair, count, &(&1 + count))
+      end)
+    end)
+  end
+
+  def insert_times(template, insertions, times) do
+    template
+    |> Stream.iterate(&insert(&1, insertions))
+    |> Stream.drop(times)
+    |> Enum.at(0)
+  end
+
+  def counts(template) do
+    template
+    |> Enum.reduce(%{}, fn {{l, _r}, count}, acc ->
+      Map.update(acc, l, count, &(&1 + count))
+    end)
+  end
+
+  def min_max(template) do
+    template
+    |> counts()
+    |> Enum.min_max_by(fn {_k, v} -> v end)
+    |> then(fn {{_, min_count}, {_, max_count}} -> {min_count, max_count} end)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+{template, insertions} = data()
+
+template
+|> insert_times(insertions, 10)
+|> min_max()
+|> then(fn {min_count, max_count} -> max_count - min_count end)
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+{template, insertions} = data()
+
+template
+|> insert_times(insertions, 40)
+|> min_max()
+|> then(fn {min_count, max_count} -> max_count - min_count end)
+```
