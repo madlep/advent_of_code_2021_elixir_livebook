@@ -69,13 +69,15 @@ end
 ```elixir
 defmodule Cave do
   @enforce_keys [:risk_levels, :width, :height]
-  defstruct risk_levels: %{}, width: 0, height: 0
+  defstruct risk_levels: %{}, width: 0, height: 0, tile_x: 1, tile_y: 1
 
-  def new(risk_levels, width, height) do
+  def new(risk_levels, width, height, tile_x \\ 1, tile_y \\ 1) do
     %Cave{
       risk_levels: build_risk_levels(risk_levels, width, height),
       width: width,
-      height: height
+      height: height,
+      tile_x: tile_x,
+      tile_y: tile_y
     }
   end
 
@@ -85,7 +87,9 @@ defmodule Cave do
     |> Enum.into(%{})
   end
 
-  defguardp is_in_cave(cave, x, y) when x in 0..(cave.width - 1) and y in 0..(cave.height - 1)
+  defguardp is_in_cave(cave, x, y)
+            when x in 0..(cave.width * cave.tile_x - 1) and
+                   y in 0..(cave.height * cave.tile_y - 1)
 
   def neighbours(cave, {x, y}) when not is_in_cave(cave, x, y), do: []
 
@@ -105,7 +109,19 @@ defmodule Cave do
   end
 
   def get(cave, {x, y}) when not is_in_cave(cave, x, y), do: nil
-  def get(cave, coord), do: cave.risk_levels[coord]
+
+  def get(cave, {x, y}) do
+    actual_x = rem(x, cave.width)
+    actual_y = rem(y, cave.height)
+
+    actual_x_tile = div(x, cave.width)
+    actual_y_tile = div(y, cave.height)
+
+    risk_level = cave.risk_levels[{actual_x, actual_y}] + actual_x_tile + actual_y_tile
+    actual_risk_level = rem(risk_level - 1, 9) + 1
+
+    actual_risk_level
+  end
 
   def shortest_paths(cave, from) do
     q = PairingHeap.new() |> PairingHeap.insert({0, from})
@@ -174,4 +190,21 @@ shortest_dist[bottom_right]
 
 ```elixir
 import Helpers
+
+width = 100
+height = 100
+tile_x = 5
+tile_y = 5
+
+cave =
+  data()
+  |> Stream.flat_map(&String.graphemes/1)
+  |> Stream.map(&String.to_integer/1)
+  |> Enum.to_list()
+  |> Cave.new(width, height, tile_x, tile_y)
+
+top_left = {0, 0}
+bottom_right = {width * tile_x - 1, height * tile_y - 1}
+{shortest_dist, _shortest_prev} = cave |> Cave.shortest_paths(top_left)
+shortest_dist[bottom_right]
 ```
