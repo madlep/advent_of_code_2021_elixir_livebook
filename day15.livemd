@@ -126,40 +126,40 @@ defmodule Cave do
   def shortest_paths(cave, from) do
     q = PairingHeap.new() |> PairingHeap.insert({0, from})
     dist = %{from => 0}
-    do_shortest(cave, from, q, dist, %{})
+    do_shortest(cave, from, q, dist)
   end
 
   # ugly imperative -> FP dijkstra  port - needs cleaning up, but works
-  defp do_shortest(cave, from, q, dist, prev) do
+  defp do_shortest(cave, from, q, dist) do
     if PairingHeap.empty?(q) do
-      {dist, prev}
+      dist
     else
       {{expected_d, coord}, new_q} = PairingHeap.pop_min(q)
       current_d = dist[coord]
 
       if current_d == expected_d do
-        {new_q, new_dist, new_prev} =
+        {new_q, new_dist} =
           cave
           |> neighbours(coord)
-          |> Enum.reduce({new_q, dist, prev}, fn {n_coord, risk_level},
-                                                 {q_acc, dist_acc, prev_acc} ->
-            alt = current_d + risk_level
+          |> Enum.reduce({new_q, dist}, &neighbour_distance(&1, &2, current_d))
 
-            if alt < Map.get(dist_acc, n_coord, :infinity) do
-              {
-                PairingHeap.insert(q_acc, {alt, n_coord}),
-                Map.put(dist_acc, n_coord, alt),
-                Map.put(prev_acc, n_coord, coord)
-              }
-            else
-              {q_acc, dist_acc, prev_acc}
-            end
-          end)
-
-        do_shortest(cave, from, new_q, new_dist, new_prev)
+        do_shortest(cave, from, new_q, new_dist)
       else
-        do_shortest(cave, from, new_q, dist, prev)
+        do_shortest(cave, from, new_q, dist)
       end
+    end
+  end
+
+  defp neighbour_distance({coord, risk_level}, {q, dist}, current_d) do
+    alt = current_d + risk_level
+
+    if alt < Map.get(dist, coord, :infinity) do
+      {
+        PairingHeap.insert(q, {alt, coord}),
+        Map.put(dist, coord, alt)
+      }
+    else
+      {q, dist}
     end
   end
 end
@@ -182,7 +182,7 @@ cave =
 
 top_left = {0, 0}
 bottom_right = {width - 1, height - 1}
-{shortest_dist, _shortest_prev} = cave |> Cave.shortest_paths(top_left)
+shortest_dist = cave |> Cave.shortest_paths(top_left)
 shortest_dist[bottom_right]
 ```
 
@@ -205,6 +205,6 @@ cave =
 
 top_left = {0, 0}
 bottom_right = {width * tile_x - 1, height * tile_y - 1}
-{shortest_dist, _shortest_prev} = cave |> Cave.shortest_paths(top_left)
+shortest_dist = cave |> Cave.shortest_paths(top_left)
 shortest_dist[bottom_right]
 ```
