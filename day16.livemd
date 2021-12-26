@@ -1,0 +1,155 @@
+<!-- vim: syntax=markdown -->
+
+# Day 16
+
+## Helpers
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Helpers do
+  def data() do
+    "data/day16.txt"
+    |> File.read!()
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule LiteralPacket do
+  @enforce_keys [:version, :value]
+  defstruct [:version, :value]
+end
+
+defmodule OperatorPacket do
+  @enforce_keys [:version, :type, :child_packets]
+  defstruct [:version, :type, :child_packets]
+
+  @sum 0
+  @prod 1
+  @min 2
+  @max 3
+  @gt 5
+  @lt 6
+  @eq 7
+
+  def call(p = %OperatorPacket{type: @sum}), do: p |> aggregate(&Enum.sum/1)
+  def call(p = %OperatorPacket{type: @prod}), do: p |> aggregate(&Enum.product/1)
+  def call(p = %OperatorPacket{type: @min}), do: p |> aggregate(&Enum.min/1)
+  def call(p = %OperatorPacket{type: @max}), do: p |> aggregate(&Enum.max/1)
+  def call(p = %OperatorPacket{type: @gt}), do: p |> predicate(&Kernel.>/2)
+  def call(p = %OperatorPacket{type: @lt}), do: p |> predicate(&Kernel.</2)
+  def call(p = %OperatorPacket{type: @eq}), do: p |> predicate(&Kernel.==/2)
+
+  defp child_values(packet), do: packet.child_packets |> Enum.map(&Packet.call/1)
+  defp aggregate(packet, f), do: packet |> child_values() |> f.()
+
+  defp predicate(packet, f) do
+    [v1, v2] = packet |> child_values()
+    if f.(v1, v2), do: 1, else: 0
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defprotocol Packet do
+  def version_sum(packet)
+  def call(packet)
+end
+
+defimpl Packet, for: LiteralPacket do
+  def version_sum(packet), do: packet.version
+  def call(packet), do: packet.value
+end
+
+defimpl Packet, for: OperatorPacket do
+  def version_sum(packet) do
+    packet.child_packets
+    |> Enum.reduce(packet.version, fn child, sum -> Packet.version_sum(child) + sum end)
+  end
+
+  def call(packet), do: OperatorPacket.call(packet)
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule PacketParser do
+  @literal_type 4
+  def parse(<<v::3, @literal_type::3, rest::bits>>) do
+    {value, size, rest} = parse_value(rest)
+    {%LiteralPacket{version: v, value: value}, 3 + 3 + size, rest}
+  end
+
+  @length_id_bits 0
+  @length_id_packets 1
+  def parse(<<v::3, type::3, @length_id_bits::1, packet_bits::integer-size(15), rest::bits>>) do
+    {child_packets, size, rest} = parse_child_packet_bits(rest, packet_bits)
+
+    {%OperatorPacket{version: v, type: type, child_packets: child_packets}, 3 + 3 + 1 + 15 + size,
+     rest}
+  end
+
+  def parse(<<v::3, type::3, @length_id_packets::1, packets::integer-size(11), rest::bits>>) do
+    {child_packets, size, rest} = parse_child_packets(rest, packets)
+
+    {%OperatorPacket{version: v, type: type, child_packets: child_packets}, 3 + 3 + 1 + 11 + size,
+     rest}
+  end
+
+  def parse_value(value_data, size \\ 0, acc \\ 0)
+
+  def parse_value(<<1::1, value_part::4, rest::bits>>, size, acc),
+    do: parse_value(rest, size + 5, acc * 16 + value_part)
+
+  def parse_value(<<0::1, value_part::4, rest::bits>>, size, acc),
+    do: {acc * 16 + value_part, size + 5, rest}
+
+  def parse_child_packet_bits(packets_data, packet_bits, size \\ 0, acc \\ [])
+  def parse_child_packet_bits(rest, 0, size, acc), do: {Enum.reverse(acc), size, rest}
+
+  def parse_child_packet_bits(packets_data, packet_bits, size, acc) when packet_bits > 0 do
+    {packet, packet_size, rest} = parse(packets_data)
+    parse_child_packet_bits(rest, packet_bits - packet_size, size + packet_size, [packet | acc])
+  end
+
+  def parse_child_packets(packets_data, packets, size \\ 0, acc \\ [])
+  def parse_child_packets(rest, 0, size, acc), do: {Enum.reverse(acc), size, rest}
+
+  def parse_child_packets(packets_data, packets, size, acc) when packets > 0 do
+    {packet, packet_size, rest} = parse(packets_data)
+    parse_child_packets(rest, packets - 1, size + packet_size, [packet | acc])
+  end
+end
+```
+
+## Part 1
+
+```elixir
+import Helpers
+
+{packet, _size, _rest} =
+  data()
+  |> :binary.decode_hex()
+  |> PacketParser.parse()
+
+Packet.version_sum(packet)
+```
+
+## Part 2
+
+```elixir
+import Helpers
+
+{packet, _size, _rest} =
+  data()
+  |> :binary.decode_hex()
+  |> PacketParser.parse()
+
+Packet.call(packet)
+```
